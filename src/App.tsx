@@ -16,12 +16,12 @@ function App() {
       <div className="App">
         <Routes>
           <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<Login />} />
+          {/*<Route path="/login" element={<Login />} />
           <Route path="/home" element={<Home />} />
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/wishlist" element={<Wishlist />} />
           <Route path="/about" element={<About />} />
-          <Route path="/admin" element={<Admin />} />
+          <Route path="/admin" element={<Admin />} />*/}
         </Routes>
         <Toaster 
           position="top-right"
