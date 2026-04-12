@@ -1,6 +1,18 @@
 import React, { useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import {
+  LayoutGrid,
+  Table2,
+  Armchair,
+  Archive,
+  DoorOpen,
+  AppWindow,
+  Cross,
+  BookMarked,
+  Sofa,
+  BedDouble,
+} from 'lucide-react';
 
 interface CategoryNavProps {
   categories: string[];
@@ -8,27 +20,38 @@ interface CategoryNavProps {
   onCategorySelect: (category: string) => void;
 }
 
-const categoryEmojis: Record<string, string> = {
-  all: '🛍️',
-  tables: '🪑',
-  chairs: '💺',
-  cabinets: '🗄️',
-  doors: '🚪',
-  windows: '🪟',
-  coffins: '⚰️',
-  cupboards: '🗃️',
-  couche: '🛋️',
-  beds: '🛏️',
+const categoryIcons: Record<string, React.ReactNode> = {
+  all:       <LayoutGrid  className="h-4 w-4" />,
+  tables:    <Table2      className="h-4 w-4" />,
+  chairs:    <Armchair    className="h-4 w-4" />,
+  cabinets:  <Archive     className="h-4 w-4" />,
+  doors:     <DoorOpen    className="h-4 w-4" />,
+  windows:   <AppWindow   className="h-4 w-4" />,
+  coffins:   <Cross       className="h-4 w-4" />,
+  cupboards: <BookMarked  className="h-4 w-4" />,
+  couche:    <Sofa        className="h-4 w-4" />,
+  beds:      <BedDouble   className="h-4 w-4" />,
 };
 
 export function CategoryNav({ categories, selectedCategory, onCategorySelect }: CategoryNavProps) {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const getLabel = (cat: string) => {
-    if (cat === 'all') return i18n.language === 'fr' ? 'Tout' : 'All';
-    if (cat === 'couche') return i18n.language === 'fr' ? 'Canapés' : 'Couches';
-    return cat.charAt(0).toUpperCase() + cat.slice(1);
+    const labels: Record<string, { en: string; fr: string }> = {
+      all:       { en: 'All',       fr: 'Tout'      },
+      tables:    { en: 'Tables',    fr: 'Tables'    },
+      chairs:    { en: 'Chairs',    fr: 'Chaises'   },
+      cabinets:  { en: 'Cabinets',  fr: 'Armoires'  },
+      doors:     { en: 'Doors',     fr: 'Portes'    },
+      windows:   { en: 'Windows',   fr: 'Fenêtres'  },
+      coffins:   { en: 'Coffins',   fr: 'Cercueils' },
+      cupboards: { en: 'Cupboards', fr: 'Placards'  },
+      couche:    { en: 'Sofas',     fr: 'Canapés'   },
+      beds:      { en: 'Beds',      fr: 'Lits'      },
+    };
+    const lang = i18n.language === 'fr' ? 'fr' : 'en';
+    return labels[cat]?.[lang] ?? cat.charAt(0).toUpperCase() + cat.slice(1);
   };
 
   return (
@@ -53,7 +76,7 @@ export function CategoryNav({ categories, selectedCategory, onCategorySelect }: 
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:text-amber-600 dark:hover:text-amber-400'
                 }`}
               >
-                <span className="text-base leading-none">{categoryEmojis[cat] ?? '📦'}</span>
+                {categoryIcons[cat] ?? <LayoutGrid className="h-4 w-4" />}
                 <span>{getLabel(cat)}</span>
                 {isActive && (
                   <motion.div

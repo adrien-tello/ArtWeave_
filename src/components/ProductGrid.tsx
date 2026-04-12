@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Product } from '../lib/supabase';
+import { Product } from '../lib/api';
 import { ProductCard } from './ProductCard';
 
 interface ProductGridProps {

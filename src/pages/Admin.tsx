@@ -1,592 +1,171 @@
 import React, { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Plus, Edit, Trash2, Search, LogOut } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { LogOut, Users, Store, ShoppingBag, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { Product, Order } from '../lib/supabase';
-import { sampleProducts } from '../data/sampleProducts';
+import { admin as adminApi, Seller, User, Order } from '../lib/api';
+import { useAuth } from '../hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 
-interface AdminUser {
-  username: string;
-  isLoggedIn: boolean;
-}
-
-interface ProductForm {
-  name: string;
-  name_fr: string;
-  description: string;
-  description_fr: string;
-  price: number;
-  category: string;
-  image_url: string;
-  in_stock: boolean;
-}
-
-const categories = ['tables', 'chairs', 'cabinets', 'doors', 'windows', 'coffins', 'cupboards', 'couche'];
+type Tab = 'sellers' | 'users' | 'orders';
 
 export function Admin() {
-  const { t } = useTranslation();
-  const [admin, setAdmin] = useState<AdminUser>({ username: '', isLoggedIn: false });
-  const [activeTab, setActiveTab] = useState<'products' | 'orders'>('products');
-  const [products, setProducts] = useState<Product[]>([]);
+  const { role, admin, logout } = useAuth();
+  const navigate = useNavigate();
+  const [tab, setTab] = useState<Tab>('sellers');
+  const [sellers, setSellers] = useState<Seller[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [showProductForm, setShowProductForm] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-
-  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<ProductForm>();
-  const { register: registerLogin, handleSubmit: handleLoginSubmit } = useForm<{ username: string; password: string }>();
 
   useEffect(() => {
-    // Initialize with sample products
-    const productsWithIds: Product[] = sampleProducts.map((product, index) => ({
-      ...product,
-      id: `product-${index + 1}`,
-      created_at: new Date().toISOString(),
-    }));
-    setProducts(productsWithIds);
+    if (role !== 'admin') { navigate('/login'); return; }
+    adminApi.sellers().then(setSellers).catch(console.error);
+    adminApi.users().then(setUsers).catch(console.error);
+    adminApi.allOrders().then(setOrders).catch(console.error);
+  }, [role, navigate]);
 
-    // Sample orders
-    const sampleOrders: Order[] = [
-      {
-        id: 'order-1',
-        customer_name: 'John Doe',
-        customer_email: 'john@example.com',
-        customer_phone: '+123456789',
-        product_id: 'product-1',
-        message: 'I would like to purchase this dining table.',
-        status: 'pending',
-        created_at: new Date().toISOString(),
-      },
-      {
-        id: 'order-2',
-        customer_name: 'Jane Smith',
-        customer_email: 'jane@example.com',
-        customer_phone: '+987654321',
-        product_id: 'product-8',
-        message: 'Is this armchair available for immediate delivery?',
-        status: 'accepted',
-        created_at: new Date().toISOString(),
-      },
-    ];
-    setOrders(sampleOrders);
-  }, []);
-
-  const handleLogin = (data: { username: string; password: string }) => {
-    // Simple authentication (in real app, this would be secure)
-    if (data.username === 'admin' && data.password === 'password') {
-      setAdmin({ username: data.username, isLoggedIn: true });
-      toast.success('Logged in successfully');
-    } else {
-      toast.error('Invalid credentials');
-    }
+  const toggleApproval = async (id: string, current: boolean) => {
+    const updated = await adminApi.approveSeller(id, !current);
+    setSellers(s => s.map(x => x.id === id ? { ...x, is_approved: updated.is_approved } : x));
+    toast.success(updated.is_approved ? 'Seller approved' : 'Seller suspended');
   };
 
-  const handleLogout = () => {
-    setAdmin({ username: '', isLoggedIn: false });
-    toast.success('Logged out successfully');
-  };
+  if (role !== 'admin') return null;
 
-  const handleProductSubmit = (data: ProductForm) => {
-    if (editingProduct) {
-      // Update existing product
-      const updatedProduct: Product = {
-        ...editingProduct,
-        ...data,
-        price: Number(data.price),
-      };
-      setProducts(products.map(p => p.id === editingProduct.id ? updatedProduct : p));
-      toast.success('Product updated successfully');
-    } else {
-      // Add new product
-      const newProduct: Product = {
-        ...data,
-        id: `product-${Date.now()}`,
-        price: Number(data.price),
-        created_at: new Date().toISOString(),
-      };
-      setProducts([...products, newProduct]);
-      toast.success('Product added successfully');
-    }
-    
-    reset();
-    setShowProductForm(false);
-    setEditingProduct(null);
-  };
-
-  const handleEditProduct = (product: Product) => {
-    setEditingProduct(product);
-    setValue('name', product.name);
-    setValue('name_fr', product.name_fr);
-    setValue('description', product.description);
-    setValue('description_fr', product.description_fr);
-    setValue('price', product.price);
-    setValue('category', product.category);
-    setValue('image_url', product.image_url);
-    setValue('in_stock', product.in_stock);
-    setShowProductForm(true);
-  };
-
-  const handleDeleteProduct = (productId: string) => {
-    if (confirm('Are you sure you want to delete this product?')) {
-      setProducts(products.filter(p => p.id !== productId));
-      toast.success('Product deleted successfully');
-    }
-  };
-
-  const handleOrderStatusChange = (orderId: string, status: 'accepted' | 'rejected') => {
-    setOrders(orders.map(order => 
-      order.id === orderId ? { ...order, status } : order
-    ));
-    toast.success(`Order ${status} successfully`);
-  };
-
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.name_fr.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
-
-  if (!admin.isLoggedIn) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 text-center">
-            {t('adminLogin')}
-          </h1>
-          <form onSubmit={handleLoginSubmit(handleLogin)} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('username')}
-              </label>
-              <input
-                {...registerLogin('username', { required: true })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                placeholder="admin"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('password')}
-              </label>
-              <input
-                type="password"
-                {...registerLogin('password', { required: true })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                placeholder="password"
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full py-2 px-4 bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors duration-300"
-            >
-              {t('login')}
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
+  const tabs = [
+    { key: 'sellers', icon: Store, label: `Sellers (${sellers.length})` },
+    { key: 'users', icon: Users, label: `Buyers (${users.length})` },
+    { key: 'orders', icon: ShoppingBag, label: `Orders (${orders.length})` },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <h1 className="text-2xl font-bold text-amber-900 dark:text-amber-100">
-              ArtWeave - Admin
-            </h1>
-            <button
-              onClick={handleLogout}
-              className="inline-flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:text-amber-600 dark:hover:text-amber-400"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              {t('logout')}
+      <header className="bg-white dark:bg-gray-800 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <h1 className="text-xl font-bold text-amber-600">ArtWeave Admin</h1>
+          <div className="flex items-center space-x-3">
+            <span className="text-sm text-gray-500">{admin?.username}</span>
+            <button onClick={() => { logout(); navigate('/'); }} className="flex items-center space-x-1 text-gray-500 hover:text-red-500 text-sm">
+              <LogOut className="h-4 w-4" /> <span>Logout</span>
             </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tab Navigation */}
-        <div className="mb-8">
-          <nav className="flex space-x-8">
-            <button
-              onClick={() => setActiveTab('products')}
-              className={`px-3 py-2 font-medium text-sm rounded-md transition-colors duration-300 ${
-                activeTab === 'products'
-                  ? 'bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200'
-                  : 'text-gray-700 dark:text-gray-300 hover:text-amber-600 dark:hover:text-amber-400'
-              }`}
-            >
-              {t('productManagement')}
-            </button>
-            <button
-              onClick={() => setActiveTab('orders')}
-              className={`px-3 py-2 font-medium text-sm rounded-md transition-colors duration-300 ${
-                activeTab === 'orders'
-                  ? 'bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200'
-                  : 'text-gray-700 dark:text-gray-300 hover:text-amber-600 dark:hover:text-amber-400'
-              }`}
-            >
-              {t('orderManagement')}
-            </button>
-          </nav>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          {[
+            { label: 'Total Sellers', value: sellers.length, sub: `${sellers.filter(s => s.is_approved).length} approved` },
+            { label: 'Total Buyers', value: users.length, sub: 'registered' },
+            { label: 'Total Orders', value: orders.length, sub: `${orders.filter(o => o.payment_status === 'paid').length} paid` },
+          ].map(stat => (
+            <div key={stat.label} className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm text-center">
+              <p className="text-3xl font-bold text-amber-600">{stat.value}</p>
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{stat.label}</p>
+              <p className="text-xs text-gray-500">{stat.sub}</p>
+            </div>
+          ))}
         </div>
 
-        {activeTab === 'products' && (
-          <div className="space-y-6">
-            {/* Product Management Header */}
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {t('productManagement')}
-              </h2>
-              <button
-                onClick={() => {
-                  setEditingProduct(null);
-                  reset();
-                  setShowProductForm(true);
-                }}
-                className="inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors duration-300"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                {t('addNewProduct')}
-              </button>
-            </div>
+        {/* Tabs */}
+        <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 mb-6 w-fit">
+          {tabs.map(t => (
+            <button key={t.key} onClick={() => setTab(t.key as Tab)}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === t.key ? 'bg-white dark:bg-gray-700 shadow text-amber-600' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>
+              <t.icon className="h-4 w-4" /> <span>{t.label}</span>
+            </button>
+          ))}
+        </div>
 
-            {/* Search and Filter */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                <input
-                  type="text"
-                  placeholder="Search products..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                />
-              </div>
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-              >
-                <option value="all">All Categories</option>
-                {categories.map(category => (
-                  <option key={category} value={category}>
-                    {t(category)}
-                  </option>
+        {/* Sellers */}
+        {tab === 'sellers' && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-900">
+                <tr>{['Shop', 'Owner', 'Email', 'Phone', 'Status', 'Action'].map(h => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{h}</th>
+                ))}</tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {sellers.map(s => (
+                  <tr key={s.id}>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{s.shop_name}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{s.name}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{s.email}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{s.phone}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${s.is_approved ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                        {s.is_approved ? 'Approved' : 'Pending'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => toggleApproval(s.id, s.is_approved)}
+                        className={`flex items-center space-x-1 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${s.is_approved ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-green-100 text-green-600 hover:bg-green-200'}`}>
+                        {s.is_approved ? <><XCircle className="h-3.5 w-3.5" /><span>Suspend</span></> : <><CheckCircle className="h-3.5 w-3.5" /><span>Approve</span></>}
+                      </button>
+                    </td>
+                  </tr>
                 ))}
-              </select>
-            </div>
-
-            {/* Products Table */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className="bg-gray-50 dark:bg-gray-900">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Image
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        {t('productName')}
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        {t('price')}
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        {t('category')}
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        {t('status')}
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        {t('actions')}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {filteredProducts.map((product) => (
-                      <tr key={product.id}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <img
-                            src={product.image_url}
-                            alt={product.name}
-                            className="h-10 w-10 rounded-lg object-cover"
-                          />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {product.name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                          {product.price.toLocaleString()} FCFA
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                          {t(product.category)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              product.in_stock
-                                ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
-                                : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
-                            }`}
-                          >
-                            {product.in_stock ? t('inStock') : t('outOfStock')}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => handleEditProduct(product)}
-                              className="text-amber-600 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-300"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteProduct(product.id)}
-                              className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+              </tbody>
+            </table>
           </div>
         )}
 
-        {activeTab === 'orders' && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {t('orderManagement')}
-            </h2>
-
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className="bg-gray-50 dark:bg-gray-900">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        {t('customer')}
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Product
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Message
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        {t('status')}
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        {t('actions')}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {orders.map((order) => {
-                      const product = products.find(p => p.id === order.product_id);
-                      return (
-                        <tr key={order.id}>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                              {order.customer_name}
-                            </div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">
-                              {order.customer_email}
-                            </div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">
-                              {order.customer_phone}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                            {product?.name || 'Unknown Product'}
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="text-sm text-gray-900 dark:text-gray-100 max-w-xs truncate">
-                              {order.message}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span
-                              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                order.status === 'pending'
-                                  ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
-                                  : order.status === 'accepted'
-                                  ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
-                                  : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
-                              }`}
-                            >
-                              {t(order.status)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            {order.status === 'pending' && (
-                              <div className="flex space-x-2">
-                                <button
-                                  onClick={() => handleOrderStatusChange(order.id, 'accepted')}
-                                  className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
-                                >
-                                  {t('accept')}
-                                </button>
-                                <button
-                                  onClick={() => handleOrderStatusChange(order.id, 'rejected')}
-                                  className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
-                                >
-                                  {t('reject')}
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+        {/* Users */}
+        {tab === 'users' && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-900">
+                <tr>{['Name', 'Email', 'Phone', 'Joined'].map(h => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{h}</th>
+                ))}</tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {users.map(u => (
+                  <tr key={u.id}>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{u.name}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{u.email}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{u.phone || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{new Date(u.created_at!).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 
-        {/* Product Form Modal */}
-        {showProductForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-                {editingProduct ? t('editProduct') : t('addNewProduct')}
-              </h2>
-              <form onSubmit={handleSubmit(handleProductSubmit)} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Product Name (English)
-                    </label>
-                    <input
-                      {...register('name', { required: 'Name is required' })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    />
-                    {errors.name && (
-                      <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Product Name (French)
-                    </label>
-                    <input
-                      {...register('name_fr', { required: 'French name is required' })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {t('price')} (FCFA)
-                    </label>
-                    <input
-                      type="number"
-                      {...register('price', { required: 'Price is required', min: 0 })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {t('category')}
-                    </label>
-                    <select
-                      {...register('category', { required: 'Category is required' })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    >
-                      <option value="">Select Category</option>
-                      {categories.map(category => (
-                        <option key={category} value={category}>
-                          {t(category)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Image URL
-                  </label>
-                  <input
-                    {...register('image_url', { required: 'Image URL is required' })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Description (English)
-                  </label>
-                  <textarea
-                    {...register('description', { required: 'Description is required' })}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Description (French)
-                  </label>
-                  <textarea
-                    {...register('description_fr', { required: 'French description is required' })}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                  />
-                </div>
-
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    {...register('in_stock')}
-                    className="h-4 w-4 text-amber-600 border-gray-300 dark:border-gray-600 rounded"
-                  />
-                  <label className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                    {t('inStock')}
-                  </label>
-                </div>
-
-                <div className="flex space-x-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowProductForm(false);
-                      setEditingProduct(null);
-                      reset();
-                    }}
-                    className="flex-1 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 py-2 px-4 bg-amber-600 text-white rounded-md hover:bg-amber-700"
-                  >
-                    {editingProduct ? 'Update' : 'Add'} Product
-                  </button>
-                </div>
-              </form>
-            </div>
+        {/* Orders */}
+        {tab === 'orders' && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-900">
+                <tr>{['Buyer', 'Shop', 'Amount', 'Status', 'Payment', 'Date'].map(h => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{h}</th>
+                ))}</tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {orders.map(o => (
+                  <tr key={o.id}>
+                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{o.buyer_name}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{o.shop_name}</td>
+                    <td className="px-4 py-3 text-sm font-semibold text-amber-600">{Number(o.total_amount).toLocaleString()} FCFA</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${o.status === 'delivered' ? 'bg-green-100 text-green-700' : o.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                        {o.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${o.payment_status === 'paid' ? 'bg-green-100 text-green-700' : o.payment_status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                        {o.payment_status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{new Date(o.created_at).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }

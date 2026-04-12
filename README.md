@@ -1,2 +1,9 @@
 # E-commerce-Amazon
 An e-commerce website using PostgreSQL as its primary database leverages a robust, relational architecture designed for high data integrity and complex transactional workloads. In this environment, PostgreSQL acts as the single source of truth for critical business data, from product catalogs to financial transactions
+
+prisma conne tion string=prisma+postgres://accelerate.prisma-data.net/?api_key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqd3RfaWQiOjEsInNlY3VyZV9rZXkiOiJza19JNWdUdFB0UmFELTFsOV9VQ1JrVDgiLCJhcGlfa2V5IjoiMDFLTlI5OUdZOFM2QU5HRVBNQzZXU1dZQlIiLCJ0ZW5hbnRfaWQiOiJmODQ2ZGE4M2VlMDJkYzI5MzU4ZWQxYWNhMjQwM2ZlOTU0NTA3ODUwYWJhOGIzNTM3YjM2OWFhZjRkYjY2NWFmIiwiaW50ZXJuYWxfc2VjcmV0IjoiMzlmZDQyZWQtMGNiZi00YTMzLWIxODUtMTU1Y2I1ZGFhM2NlIn0.wVn47xh_F0MWgoieu6noNcVvLALZpIKU9i6O4hrnuTw
+
+any client=postgres://f846da83ee02dc29358ed1aca2403fe954507850aba8b3537b369aaf4db665af:sk_I5gTtPtRaD-1l9_UCRkT8@db.prisma.io:5432/postgres?sslmode=require
+
+Claudinary setup 
+

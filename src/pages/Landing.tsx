@@ -92,10 +92,19 @@ export function Landing() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative py-20 lg:py-32">
+      <section className="relative py-20 lg:py-32 overflow-hidden">
+        {/* Background image */}
+        <div className="absolute inset-0 z-0">
+          <img
+            src="https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1600&q=80"
+            alt="Furniture background"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/55" />
+        </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-gray-900 dark:text-gray-100 mb-6">
+          <div className="text-center relative z-10">
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6">
               <span className="block">
                 {i18n.language === 'fr' ? 'Artisanat' : 'Handcrafted'}
               </span>
@@ -104,7 +113,7 @@ export function Landing() {
               </span>
             </h1>
 
-            <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-400 mb-8 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-xl md:text-2xl text-gray-200 mb-8 max-w-3xl mx-auto leading-relaxed">
               {i18n.language === 'fr'
                 ? 'Découvrez notre collection de meubles en bois faits à la main, où tradition et design moderne se rencontrent pour créer des pièces exceptionnelles.'
                 : 'Discover our collection of handcrafted wooden furniture, where tradition meets modern design to create exceptional pieces.'}
