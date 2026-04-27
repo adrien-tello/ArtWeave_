@@ -44,12 +44,37 @@ router.post('/', requireUser, async (req: AuthRequest, res: Response) => {
     ? await prisma.cartItem.update({
         where: { id: existing.id },
         data: { quantity: existing.quantity + quantity },
+        include: {
+          product: {
+            select: { name: true, name_fr: true, price: true, image_url: true, in_stock: true,
+              seller: { select: { shop_name: true } },
+            },
+          },
+        },
       })
     : await prisma.cartItem.create({
         data: { user_id: req.actor!.id, product_id, quantity },
+        include: {
+          product: {
+            select: { name: true, name_fr: true, price: true, image_url: true, in_stock: true,
+              seller: { select: { shop_name: true } },
+            },
+          },
+        },
       });
 
-  res.status(201).json(item);
+  const { product, ...rest } = item;
+  res.status(201).json({
+    id:         rest.id,
+    quantity:   rest.quantity,
+    product_id: rest.product_id,
+    name:       product.name,
+    name_fr:    product.name_fr,
+    price:      Number(product.price),
+    image_url:  product.image_url,
+    in_stock:   product.in_stock,
+    shop_name:  product.seller.shop_name,
+  });
 });
 
 // PATCH /api/cart/:id — update quantity

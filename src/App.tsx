@@ -15,6 +15,7 @@ import { Wishlist } from './pages/Wishlist';
 import { About } from './pages/About';
 import { SellerDashboard } from './pages/SellerDashboard';
 import { Admin } from './pages/Admin';
+import { AdminLogin } from './pages/AdminLogin';
 import './lib/i18n';
 
 function ProtectedRoute({ children, allow }: { children: React.ReactNode; allow: string[] }) {
@@ -27,19 +28,29 @@ function ProtectedRoute({ children, allow }: { children: React.ReactNode; allow:
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/"                  element={<Landing />} />
-      <Route path="/login"             element={<Login />} />
-      <Route path="/register"          element={<Register />} />
-      <Route path="/seller/register"   element={<SellerRegister />} />
-      <Route path="/home"              element={<Home />} />
-      <Route path="/product/:id"       element={<ProductDetail />} />
-      <Route path="/about"             element={<About />} />
-      <Route path="/wishlist"          element={<Wishlist />} />
-      <Route path="/cart"              element={<ProtectedRoute allow={['user']}><Cart /></ProtectedRoute>} />
-      <Route path="/checkout"          element={<ProtectedRoute allow={['user']}><Checkout /></ProtectedRoute>} />
-      <Route path="/seller/dashboard"  element={<ProtectedRoute allow={['seller']}><SellerDashboard /></ProtectedRoute>} />
-      <Route path="/admin"             element={<ProtectedRoute allow={['admin']}><Admin /></ProtectedRoute>} />
-      <Route path="*"                  element={<Navigate to="/" replace />} />
+      {/* ── Public ───────────────────────────────────────────── */}
+      <Route path="/"                 element={<Landing />} />
+      <Route path="/home"             element={<Home />} />
+      <Route path="/product/:id"      element={<ProductDetail />} />
+      <Route path="/about"            element={<About />} />
+      <Route path="/wishlist"         element={<Wishlist />} />
+
+      {/* ── Buyer ───────────────────────────────────────────── */}
+      <Route path="/login"            element={<Login />} />
+      <Route path="/register"         element={<Register />} />
+      <Route path="/cart"             element={<ProtectedRoute allow={['user']}><Cart /></ProtectedRoute>} />
+      <Route path="/checkout"         element={<ProtectedRoute allow={['user']}><Checkout /></ProtectedRoute>} />
+
+      {/* ── Seller ───────────────────────────────────────────── */}
+      <Route path="/seller/login"     element={<Login defaultTab="seller" />} />
+      <Route path="/seller/register"  element={<SellerRegister />} />
+      <Route path="/seller/dashboard" element={<ProtectedRoute allow={['seller']}><SellerDashboard /></ProtectedRoute>} />
+
+      {/* ── Admin — completely separate, not linked from public pages ─── */}
+      <Route path="/secure-admin-portal" element={<AdminLogin />} />
+      <Route path="/admin"            element={<ProtectedRoute allow={['admin']}><Admin /></ProtectedRoute>} />
+
+      <Route path="*"                 element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

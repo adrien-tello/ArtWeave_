@@ -5,15 +5,15 @@ import { toast } from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
 import { Logo } from '../components/Logo';
 
-type Tab = 'user' | 'seller' | 'admin';
+type Tab = 'user' | 'seller';
 
-export function Login() {
+export function Login({ defaultTab = 'user' }: { defaultTab?: Tab }) {
   const navigate = useNavigate();
-  const { loginUser, loginSeller, loginAdmin } = useAuth();
-  const [tab, setTab] = useState<Tab>('user');
+  const { loginUser, loginSeller } = useAuth();
+  const [tab, setTab] = useState<Tab>(defaultTab);
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({ email: '', username: '', password: '' });
+  const [form, setForm] = useState({ email: '', password: '' });
 
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
@@ -25,14 +25,10 @@ export function Login() {
         await loginUser(form.email, form.password);
         toast.success('Welcome back!');
         navigate('/home');
-      } else if (tab === 'seller') {
+      } else {
         await loginSeller(form.email, form.password);
         toast.success('Welcome back!');
         navigate('/seller/dashboard');
-      } else {
-        await loginAdmin(form.username, form.password);
-        toast.success('Admin logged in');
-        navigate('/admin');
       }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Login failed');
@@ -54,31 +50,35 @@ export function Login() {
             <span className="text-2xl font-bold text-amber-600">ArtWeave</span>
           </div>
 
-          {/* Tabs */}
+          {/* Tabs — user and seller only */}
           <div className="flex rounded-lg bg-gray-100 dark:bg-gray-700 p-1 mb-6">
-            {(['user', 'seller', 'admin'] as Tab[]).map(t => (
+            {(['user', 'seller'] as Tab[]).map(t => (
               <button key={t} onClick={() => setTab(t)}
                 className={`flex-1 py-2 text-sm font-medium rounded-md transition-all capitalize ${tab === t ? 'bg-white dark:bg-gray-600 shadow text-amber-600' : 'text-gray-500 dark:text-gray-400'}`}>
-                {t}
+                {t === 'user' ? 'Buyer' : 'Seller'}
               </button>
             ))}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {tab === 'admin' ? (
-              <input value={form.username} onChange={e => set('username', e.target.value)}
-                placeholder="Username" required
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 outline-none" />
-            ) : (
-              <input type="email" value={form.email} onChange={e => set('email', e.target.value)}
-                placeholder="Email address" required
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 outline-none" />
-            )}
+            <input
+              type="email"
+              value={form.email}
+              onChange={e => set('email', e.target.value)}
+              placeholder="Email address"
+              required
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 outline-none"
+            />
 
             <div className="relative">
-              <input type={showPw ? 'text' : 'password'} value={form.password} onChange={e => set('password', e.target.value)}
-                placeholder="Password" required
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 outline-none pr-12" />
+              <input
+                type={showPw ? 'text' : 'password'}
+                value={form.password}
+                onChange={e => set('password', e.target.value)}
+                placeholder="Password"
+                required
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 outline-none pr-12"
+              />
               <button type="button" onClick={() => setShowPw(!showPw)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
                 {showPw ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}

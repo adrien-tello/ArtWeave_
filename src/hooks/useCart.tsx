@@ -34,16 +34,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (role !== 'user') { toast.error('Please login to add to cart'); return; }
     const item = await cartApi.add(product_id, quantity);
     setItems(prev => {
-      const exists = prev.find(i => i.id === item.id);
-      return exists ? prev.map(i => i.id === item.id ? { ...i, quantity: item.quantity } : i) : [...prev, item];
+      const exists = prev.find(i => i.product_id === item.product_id);
+      return exists
+        ? prev.map(i => i.product_id === item.product_id ? item : i)
+        : [...prev, item];
     });
     toast.success('Added to cart');
   };
 
   const updateItem = async (id: string, quantity: number) => {
     if (quantity < 1) { await removeItem(id); return; }
-    const updated = await cartApi.update(id, quantity);
-    setItems(prev => prev.map(i => i.id === id ? { ...i, quantity: updated.quantity } : i));
+    await cartApi.update(id, quantity);
+    setItems(prev => prev.map(i => i.id === id ? { ...i, quantity } : i));
   };
 
   const removeItem = async (id: string) => {

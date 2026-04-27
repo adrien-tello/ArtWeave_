@@ -19,41 +19,70 @@ sudo systemctl start postgresql
 sudo systemctl enable postgresql
 
 # ── STEP 4: Create DB and user ────────────────────────────────
+# WARNING: Change 'your_strong_password' to a secure password!
+DB_PASSWORD="your_strong_password"
+DB_USER="ecommerce_user"
+DB_NAME="ecommerce_db"
+
 sudo -u postgres psql <<EOF
-CREATE DATABASE ecommerce_db;
-CREATE USER ecommerce_user WITH ENCRYPTED PASSWORD 'your_strong_password';
-GRANT ALL PRIVILEGES ON DATABASE ecommerce_db TO ecommerce_user;
-\c ecommerce_db
-GRANT ALL ON SCHEMA public TO ecommerce_user;
+CREATE DATABASE $DB_NAME;
+CREATE USER $DB_USER WITH ENCRYPTED PASSWORD '$DB_PASSWORD';
+GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;
+\c $DB_NAME
+GRANT ALL ON SCHEMA public TO $DB_USER;
 EOF
 
-# ── STEP 5: Run schema ────────────────────────────────────────
-psql -U ecommerce_user -d ecommerce_db -h localhost -f /var/www/artweave/backend/src/db/schema.sql
-
-# ── STEP 6: Install PM2 (process manager) ────────────────────
+# ── STEP 5: Install PM2 (process manager) ────────────────────
 sudo npm install -g pm2
 
-# ── STEP 7: Build and start backend ──────────────────────────
+# ── STEP 6: Build and start backend ──────────────────────────
 cd /var/www/artweave/backend
+
+# Create .env file (edit with your actual values!)
+cat > .env <<EOF
+PORT=3001
+FRONTEND_URL=http://YOUR_VPS_IP
+JWT_SECRET=$(openssl rand -base64 32)
+DATABASE_URL=postgresql://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=change_this_admin_password
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+MONETBIL_SERVICE_KEY=your_monetbil_key
+MONETBIL_SECRET_KEY=your_monetbil_secret
+EOF
+
 npm install
-npm run build
+
+# Deploy Prisma migrations (replaces raw SQL!)
+npx prisma migrate deploy
+npx prisma generate
 
 # Seed the first admin user
-node dist/seed.js
+npx ts-node src/seed.ts
+
+# Build the backend
+npm run build
 
 # Start with PM2
 pm2 start dist/index.js --name artweave-api
 pm2 save
 pm2 startup   # follow the printed command to enable on reboot
 
-# ── STEP 8: Build frontend ────────────────────────────────────
+# ── STEP 7: Build frontend ────────────────────────────────────
 cd /var/www/artweave
-# Edit .env first: set VITE_API_URL=http://YOUR_VPS_IP/api
+
+# Create frontend .env
+cat > .env <<EOF
+VITE_API_URL=http://YOUR_VPS_IP/api
+EOF
+
 npm install
 npm run build
 # This creates /var/www/artweave/dist/
 
-# ── STEP 9: Configure Nginx ───────────────────────────────────
+# ── STEP 8: Configure Nginx ───────────────────────────────────
 sudo tee /etc/nginx/sites-available/artweave > /dev/null <<'NGINX'
 server {
     listen 80;
@@ -83,11 +112,23 @@ NGINX
 sudo ln -sf /etc/nginx/sites-available/artweave /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 
-# ── STEP 10: Firewall ─────────────────────────────────────────
+# ── STEP 9: Firewall ─────────────────────────────────────────
 sudo ufw allow OpenSSH
 sudo ufw allow 'Nginx Full'
-sudo ufw enable
+sudo ufw --force enable
 
 echo "✅ Deployment complete!"
 echo "Frontend: http://YOUR_VPS_IP"
 echo "API:      http://YOUR_VPS_IP/api/health"
+echo ""
+echo "⚠️  IMPORTANT: Edit /var/www/artweave/backend/.env and set your actual:"
+echo "   - JWT_SECRET (already auto-generated)"
+echo "   - CLOUDINARY credentials"
+echo "   - MONETBIL credentials"
+echo "   - ADMIN_PASSWORD"
+echo ""
+echo "📋 Next steps:"
+echo "   1. Update YOUR_VPS_IP in Nginx config and .env files"
+echo "   2. Restart backend: pm2 restart artweave-api"
+echo "   3. View logs: pm2 logs artweave-api"
+

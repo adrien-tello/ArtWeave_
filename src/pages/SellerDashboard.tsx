@@ -20,6 +20,7 @@ export function SellerDashboard() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [imageUploading, setImageUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string>('');
+  const [imageReady, setImageReady] = useState(false); // true only after Cloudinary confirms
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<ProductForm>();
   const watchedImageUrl = watch('image_url');
@@ -42,7 +43,7 @@ export function SellerDashboard() {
         setMyProducts(p => [created, ...p]);
         toast.success('Product added');
       }
-      reset(); setShowForm(false); setEditing(null); setImagePreview('');
+      reset(); setShowForm(false); setEditing(null); setImagePreview(''); setImageReady(false);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to save product');
     }
@@ -52,22 +53,29 @@ export function SellerDashboard() {
     setEditing(p);
     (Object.keys(p) as (keyof Product)[]).forEach(k => setValue(k as keyof ProductForm, p[k] as never));
     setImagePreview(p.image_url);
+    setImageReady(true);
     setShowForm(true);
   };
 
   const handleImagePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setImagePreview(URL.createObjectURL(file));
+    const localPreview = URL.createObjectURL(file);
+    setImagePreview(localPreview);
+    setImageReady(false);
     setImageUploading(true);
     try {
       const url = await uploadApi.image(file);
       setValue('image_url', url, { shouldValidate: true });
       setImagePreview(url);
-      toast.success('Image uploaded');
-    } catch {
-      toast.error('Image upload failed');
-      setImagePreview('');
+      setImageReady(true);
+      toast.success('Image uploaded successfully');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Upload failed';
+      toast.error(`Image upload failed: ${msg}`);
+      setImagePreview(localPreview);
+      setImageReady(false);
+      setValue('image_url', '', { shouldValidate: false });
     } finally {
       setImageUploading(false);
     }
@@ -229,7 +237,7 @@ export function SellerDashboard() {
                 <div
                   onClick={() => !imageUploading && fileInputRef.current?.click()}
                   className={`relative w-full h-36 border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-colors
-                    ${ errors.image_url ? 'border-red-400 bg-red-50 dark:bg-red-900/10' : 'border-gray-300 dark:border-gray-600 hover:border-amber-400 bg-gray-50 dark:bg-gray-700' }`}
+                    ${ errors.image_url ? 'border-red-400 bg-red-50 dark:bg-red-900/10' : imageReady ? 'border-green-400 bg-gray-50 dark:bg-gray-700' : 'border-gray-300 dark:border-gray-600 hover:border-amber-400 bg-gray-50 dark:bg-gray-700' }`}
                 >
                   {imagePreview ? (
                     <img src={imagePreview} alt="preview" className="w-full h-full object-cover rounded-xl" />
@@ -244,13 +252,22 @@ export function SellerDashboard() {
                       <span className="text-white text-sm font-medium">Uploading…</span>
                     </div>
                   )}
+                  {imagePreview && !imageUploading && imageReady && (
+                    <span className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">✓ Uploaded</span>
+                  )}
+                  {imagePreview && !imageUploading && !imageReady && (
+                    <div className="absolute inset-0 bg-black/50 rounded-xl flex flex-col items-center justify-center space-y-1">
+                      <span className="text-orange-300 text-xs font-medium">⚠ Upload failed</span>
+                      <span className="text-white text-xs">Click to retry</span>
+                    </div>
+                  )}
                 </div>
                 {imagePreview && !imageUploading && (
-                  <button type="button" onClick={() => { setImagePreview(''); setValue('image_url', ''); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                  <button type="button" onClick={() => { setImagePreview(''); setImageReady(false); setValue('image_url', ''); if (fileInputRef.current) fileInputRef.current.value = ''; }}
                     className="mt-1 text-xs text-red-500 hover:underline">Remove image</button>
                 )}
                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImagePick} />
-                {errors.image_url && <p className="text-xs text-red-500 mt-1">Product image is required</p>}
+                {errors.image_url && <p className="text-xs text-red-500 mt-1">Product image is required — please upload an image first</p>}
               </div>
               <textarea {...register('description', { required: true })} placeholder="Description (English)" rows={2}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 outline-none text-sm resize-none" />
@@ -261,7 +278,7 @@ export function SellerDashboard() {
                 <span>In stock</span>
               </label>
               <div className="flex space-x-3 pt-2">
-                <button type="button" onClick={() => { setShowForm(false); setEditing(null); reset(); setImagePreview(''); }}
+                <button type="button" onClick={() => { setShowForm(false); setEditing(null); reset(); setImagePreview(''); setImageReady(false); }}
                   className="flex-1 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 text-sm hover:bg-gray-50 dark:hover:bg-gray-700">Cancel</button>
                 <button type="submit" className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-xl">
                   {editing ? 'Update' : 'Add'} Product

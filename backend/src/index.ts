@@ -1,22 +1,20 @@
+import 'dotenv/config'; // must be first — loads .env before any other module reads process.env
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import uploadRouter    from './routes/upload';
-import authRouter     from './routes/auth';
-import productsRouter from './routes/products';
-import cartRouter     from './routes/cart';
-import ordersRouter   from './routes/orders';
-import paymentsRouter from './routes/payments';
-import adminRouter    from './routes/admin';
-
-dotenv.config();
+import authRouter      from './routes/auth';
+import productsRouter  from './routes/products';
+import cartRouter      from './routes/cart';
+import ordersRouter    from './routes/orders';
+import paymentsRouter  from './routes/payments';
+import adminRouter     from './routes/admin';
 
 const app  = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173', credentials: true }));
 app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // needed for Monetbil webhook
+app.use(express.urlencoded({ extended: true }));
 
 app.use('/api/upload',   uploadRouter);
 app.use('/api/auth',     authRouter);
@@ -28,7 +26,6 @@ app.use('/api/admin',    adminRouter);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
-// Global error handler — catches unhandled async errors
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Internal server error' });

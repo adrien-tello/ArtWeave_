@@ -1,9 +1,19 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
 import { prisma } from '../db/prisma';
 
 const router = Router();
+
+// Strict rate limit for admin login — 5 attempts per 15 minutes per IP
+const adminRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { error: 'Too many login attempts. Try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 function signToken(id: string, role: string, email: string) {
   return jwt.sign({ id, role, email }, process.env.JWT_SECRET!, { expiresIn: '7d' });
@@ -72,7 +82,7 @@ router.post('/seller/login', async (req: Request, res: Response) => {
 });
 
 // ── ADMIN LOGIN ────────────────────────────────────────────
-router.post('/admin/login', async (req: Request, res: Response) => {
+router.post('/admin/login', adminRateLimit, async (req: Request, res: Response) => {
   const { username, password } = req.body;
   const admin = await prisma.admin.findUnique({ where: { username } });
   if (!admin || !(await bcrypt.compare(password, admin.password_hash))) {
