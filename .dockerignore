@@ -1,0 +1,9 @@
+node_modules
+dist
+.env
+backend/node_modules
+backend/dist
+backend/.env
+backend/.env.production
+backend/.env.docker
+backend/src/generated

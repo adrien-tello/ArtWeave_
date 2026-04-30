@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { prisma } from '../db/prisma';
 import { requireUser, requireSeller, requireAdmin, AuthRequest } from '../middleware/auth';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus } from '../generated/prisma';
 
 const router = Router();
 
