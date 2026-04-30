@@ -37,4 +37,4 @@ COPY --from=builder /app/dist ./dist
 
 EXPOSE 3001
 
-CMD ["sh", "-c", "npx prisma migrate deploy --config prisma.config.ts && node dist/index.js"]
+CMD ["sh", "-c", "DATABASE_URL=$DATABASE_URL npx prisma migrate deploy --config prisma.config.ts && node dist/index.js"]
