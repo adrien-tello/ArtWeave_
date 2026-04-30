@@ -37,4 +37,4 @@ COPY --from=builder /app/dist ./dist
 
 EXPOSE 3001
 
-CMD ["sh", "-c", "npx prisma migrate deploy --schema prisma/schema.prisma --url ${DATABASE_URL:-postgresql://ecommerce_user:TKcooporation12@kscgkggcc4sssskgc8ogokcw:5432/ecommerce_db} && node dist/index.js"]
+CMD ["node", "dist/index.js"]

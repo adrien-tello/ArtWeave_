@@ -1,4 +1,9 @@
-import 'dotenv/config'; // must be first — loads .env before any other module reads process.env
+import 'dotenv/config';
+
+// Fallback for environments where DATABASE_URL is not injected (e.g. Coolify)
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = 'postgresql://ecommerce_user:TKcooporation12@kscgkggcc4sssskgc8ogokcw:5432/ecommerce_db';
+}
 import express from 'express';
 import cors from 'cors';
 import uploadRouter    from './routes/upload';
