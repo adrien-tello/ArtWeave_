@@ -2,14 +2,14 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
+# Declare build arg BEFORE copying source so Vite can read it
+ARG VITE_API_URL=https://api.95.111.228.35.sslip.io/api
+ENV VITE_API_URL=$VITE_API_URL
+
 COPY package*.json ./
 RUN npm install --prefer-offline --fetch-retry-mintimeout 20000 --fetch-retry-maxtimeout 120000 --fetch-retries 5
 
 COPY . .
-
-# Injected at build time by Coolify / docker-compose
-ARG VITE_API_URL
-ENV VITE_API_URL=$VITE_API_URL
 
 RUN npm run build
 
