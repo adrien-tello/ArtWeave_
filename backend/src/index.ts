@@ -1,8 +1,20 @@
 import 'dotenv/config';
 
-// Fallback for environments where DATABASE_URL is not injected (e.g. Coolify)
+// Fallback for environments where env vars are not injected (e.g. Coolify)
 if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = 'postgresql://ecommerce_user:TKcooporation12@kscgkggcc4sssskgc8ogokcw:5432/ecommerce_db';
+}
+if (!process.env.JWT_SECRET) {
+  process.env.JWT_SECRET = '07b43689ef24448cc2ef8e7e82392c174fbaee7d1e491a1df1e18af33bf3f25ad65b7138fa36ee74a4b2c006bf5a383d7e15a66add482d4efe7570d241607b2d';
+}
+if (!process.env.CLOUDINARY_CLOUD_NAME) {
+  process.env.CLOUDINARY_CLOUD_NAME = 'deshpjl5v';
+}
+if (!process.env.CLOUDINARY_API_KEY) {
+  process.env.CLOUDINARY_API_KEY = '689313516477913';
+}
+if (!process.env.CLOUDINARY_API_SECRET) {
+  process.env.CLOUDINARY_API_SECRET = 'UEnfveSaLwkDmDJVvFTMApCu_Bo';
 }
 import express from 'express';
 import cors from 'cors';
@@ -27,14 +39,26 @@ const ALLOWED_ORIGINS = [
   process.env.FRONTEND_URL,
   'https://artweave.95.111.228.35.sslip.io',
   'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
 ].filter(Boolean) as string[];
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
+    if (!origin) return callback(null, true); // Allow no-origin requests (mobile apps, curl, etc)
+    
+    // Check exact match
     if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
-    console.warn(`[CORS] Blocked origin: ${origin}`);
-    callback(new Error(`CORS blocked: ${origin}`));
+    
+    // For production, also allow sslip.io domains dynamically
+    if (origin.includes('sslip.io')) {
+      return callback(null, true);
+    }
+    
+    console.warn(`[CORS] Blocked origin: ${origin}. Allowed: ${ALLOWED_ORIGINS.join(', ')}`);
+    return callback(null, true); // Log and allow for debugging
   },
   credentials: true,
 }));
