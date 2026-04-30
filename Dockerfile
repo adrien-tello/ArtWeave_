@@ -11,6 +11,9 @@ RUN npm install --prefer-offline --fetch-retry-mintimeout 20000 --fetch-retry-ma
 
 COPY . .
 
+# Write .env file with the build arg so Vite picks it up during build
+RUN echo "VITE_API_URL=${VITE_API_URL}" > .env
+
 RUN npm run build
 
 # ── Serve with nginx ────────────────────────────────────────

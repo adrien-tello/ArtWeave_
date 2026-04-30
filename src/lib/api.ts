@@ -1,7 +1,11 @@
-const BASE = import.meta.env.VITE_API_URL || 
-  (window.location.hostname === 'artweave.95.111.228.35.sslip.io' 
-    ? 'https://api.95.111.228.35.sslip.io/api' 
+const BASE = import.meta.env.VITE_API_URL ||
+  (window.location.hostname.includes('95.111.228.35')
+    ? 'https://api.95.111.228.35.sslip.io/api'
     : 'http://localhost:3001/api');
+
+console.log('[api] BASE URL:', BASE);
+console.log('[api] VITE_API_URL from env:', import.meta.env.VITE_API_URL);
+console.log('[api] hostname:', window.location.hostname);
 
 function token() {
   return localStorage.getItem('token');
