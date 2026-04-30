@@ -6,7 +6,6 @@ import { prisma } from '../db/prisma';
 
 const router = Router();
 
-// Strict rate limit for admin login — 5 attempts per 15 minutes per IP
 const adminRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
@@ -22,6 +21,7 @@ function signToken(id: string, role: string, email: string) {
 // ── USER REGISTER ──────────────────────────────────────────
 router.post('/user/register', async (req: Request, res: Response) => {
   const { name, email, phone, password } = req.body;
+  console.log('[auth] user/register attempt:', { name, email });
   if (!name || !email || !password) {
     res.status(400).json({ error: 'name, email and password required' }); return;
   }
@@ -30,8 +30,10 @@ router.post('/user/register', async (req: Request, res: Response) => {
       data: { name, email, phone: phone || null, password_hash: await bcrypt.hash(password, 10) },
       select: { id: true, name: true, email: true, phone: true },
     });
+    console.log('[auth] user/register success:', user.id);
     res.status(201).json({ token: signToken(user.id, 'user', user.email), user });
-  } catch {
+  } catch (err) {
+    console.error('[auth] user/register error:', err);
     res.status(409).json({ error: 'Email already registered' });
   }
 });
@@ -39,17 +41,26 @@ router.post('/user/register', async (req: Request, res: Response) => {
 // ── USER LOGIN ─────────────────────────────────────────────
 router.post('/user/login', async (req: Request, res: Response) => {
   const { email, password } = req.body;
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || !(await bcrypt.compare(password, user.password_hash))) {
-    res.status(401).json({ error: 'Invalid credentials' }); return;
+  console.log('[auth] user/login attempt:', { email });
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+      console.warn('[auth] user/login failed: invalid credentials for', email);
+      res.status(401).json({ error: 'Invalid credentials' }); return;
+    }
+    const { password_hash: _, ...safe } = user;
+    console.log('[auth] user/login success:', user.id);
+    res.json({ token: signToken(user.id, 'user', user.email), user: safe });
+  } catch (err) {
+    console.error('[auth] user/login error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
-  const { password_hash: _, ...safe } = user;
-  res.json({ token: signToken(user.id, 'user', user.email), user: safe });
 });
 
 // ── SELLER REGISTER ────────────────────────────────────────
 router.post('/seller/register', async (req: Request, res: Response) => {
   const { name, email, phone, whatsapp, shop_name, shop_desc, password } = req.body;
+  console.log('[auth] seller/register attempt:', { name, email, shop_name });
   if (!name || !email || !phone || !shop_name || !password) {
     res.status(400).json({ error: 'name, email, phone, shop_name and password required' }); return;
   }
@@ -64,8 +75,10 @@ router.post('/seller/register', async (req: Request, res: Response) => {
       },
       select: { id: true, name: true, email: true, phone: true, whatsapp: true, shop_name: true, is_approved: true },
     });
+    console.log('[auth] seller/register success:', seller.id);
     res.status(201).json({ token: signToken(seller.id, 'seller', seller.email), seller });
-  } catch {
+  } catch (err) {
+    console.error('[auth] seller/register error:', err);
     res.status(409).json({ error: 'Email already registered' });
   }
 });
@@ -73,22 +86,38 @@ router.post('/seller/register', async (req: Request, res: Response) => {
 // ── SELLER LOGIN ───────────────────────────────────────────
 router.post('/seller/login', async (req: Request, res: Response) => {
   const { email, password } = req.body;
-  const seller = await prisma.seller.findUnique({ where: { email } });
-  if (!seller || !(await bcrypt.compare(password, seller.password_hash))) {
-    res.status(401).json({ error: 'Invalid credentials' }); return;
+  console.log('[auth] seller/login attempt:', { email });
+  try {
+    const seller = await prisma.seller.findUnique({ where: { email } });
+    if (!seller || !(await bcrypt.compare(password, seller.password_hash))) {
+      console.warn('[auth] seller/login failed: invalid credentials for', email);
+      res.status(401).json({ error: 'Invalid credentials' }); return;
+    }
+    const { password_hash: _, ...safe } = seller;
+    console.log('[auth] seller/login success:', seller.id);
+    res.json({ token: signToken(seller.id, 'seller', seller.email), seller: safe });
+  } catch (err) {
+    console.error('[auth] seller/login error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
-  const { password_hash: _, ...safe } = seller;
-  res.json({ token: signToken(seller.id, 'seller', seller.email), seller: safe });
 });
 
 // ── ADMIN LOGIN ────────────────────────────────────────────
 router.post('/admin/login', adminRateLimit, async (req: Request, res: Response) => {
   const { username, password } = req.body;
-  const admin = await prisma.admin.findUnique({ where: { username } });
-  if (!admin || !(await bcrypt.compare(password, admin.password_hash))) {
-    res.status(401).json({ error: 'Invalid credentials' }); return;
+  console.log('[auth] admin/login attempt:', { username });
+  try {
+    const admin = await prisma.admin.findUnique({ where: { username } });
+    if (!admin || !(await bcrypt.compare(password, admin.password_hash))) {
+      console.warn('[auth] admin/login failed for:', username);
+      res.status(401).json({ error: 'Invalid credentials' }); return;
+    }
+    console.log('[auth] admin/login success:', admin.id);
+    res.json({ token: signToken(admin.id, 'admin', admin.username), admin: { id: admin.id, username: admin.username } });
+  } catch (err) {
+    console.error('[auth] admin/login error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
-  res.json({ token: signToken(admin.id, 'admin', admin.username), admin: { id: admin.id, username: admin.username } });
 });
 
 export default router;

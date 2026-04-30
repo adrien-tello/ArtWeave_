@@ -17,6 +17,12 @@ import adminRouter     from './routes/admin';
 const app  = express();
 const PORT = process.env.PORT || 3001;
 
+// ── Request logger ─────────────────────────────────────────
+app.use((req, _res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} — origin: ${req.headers.origin || 'none'}`);
+  next();
+});
+
 const ALLOWED_ORIGINS = [
   process.env.FRONTEND_URL,
   'https://artweave.95.111.228.35.sslip.io',
@@ -25,9 +31,9 @@ const ALLOWED_ORIGINS = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    // allow requests with no origin (mobile apps, curl, Postman)
     if (!origin) return callback(null, true);
     if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    console.warn(`[CORS] Blocked origin: ${origin}`);
     callback(new Error(`CORS blocked: ${origin}`));
   },
   credentials: true,
@@ -50,4 +56,9 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   res.status(500).json({ error: 'Internal server error' });
 });
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Allowed origins: ${ALLOWED_ORIGINS.join(', ')}`);
+  console.log(`DATABASE_URL set: ${!!process.env.DATABASE_URL}`);
+  console.log(`JWT_SECRET set: ${!!process.env.JWT_SECRET}`);
+});
